@@ -615,8 +615,11 @@ let mfTab = 'registry'; // default to registry tab
 
 // Start on step 1 (Add IOCs) with wizard open
 window.addEventListener('DOMContentLoaded', () => {
-  openWizard();
   wizStep = 1;
+  sourceType = 'custom';
+  iocRules = [{ ioc:'HKLM\\...\\Policies\\System → EnableLUA = 0x00000000', type:'Windows Registry', family:'Defense Evasion' }];
+  sourceName = '';
+  document.getElementById('wiz-overlay').classList.remove('hidden');
   renderStep();
 });
 
