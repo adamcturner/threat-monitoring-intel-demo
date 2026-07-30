@@ -286,6 +286,14 @@
   .severity-crit{background:rgba(255,86,100,.08);border:1px solid rgba(255,86,100,.25);color:rgba(255,86,100,.9)}
   .severity-warn{background:rgba(255,183,33,.08);border:1px solid rgba(255,183,33,.25);color:rgba(255,183,33,.9)}
 
+  /* Checkbox */
+  th.cb,td.cb{width:40px;padding-left:16px;padding-right:4px}
+  input[type=checkbox]{appearance:none;-webkit-appearance:none;width:15px;height:15px;border:1.5px solid rgba(160,199,255,.3);border-radius:3px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;background:transparent;transition:all .12s;vertical-align:middle;flex-shrink:0}
+  input[type=checkbox]:checked{background:var(--brand-primary);border-color:var(--brand-primary)}
+  input[type=checkbox]:checked::after{content:'✓';color:#fff;font-size:10px;line-height:1}
+  input[type=checkbox]:indeterminate{background:var(--brand-primary);border-color:var(--brand-primary)}
+  input[type=checkbox]:indeterminate::after{content:'−';color:#fff;font-size:12px;line-height:1}
+
   /* IOC type sub-tabs (Files | Windows Registry) */
   .ioc-tabs{display:flex;border-bottom:1px solid var(--stroke-moderate);background:rgba(9,46,87,.3);flex-shrink:0}
   .ioc-tab{position:relative;padding:9px 20px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text-weak);user-select:none;transition:color .15s}
@@ -518,7 +526,7 @@
   <!-- Action bar -->
   <div class="action-bar">
     <span style="font-size:13px;color:var(--text-weak)" id="mf-count"></span>
-    <button class="btn btn-secondary" style="margin-left:auto;color:var(--danger);border-color:var(--danger-bd)" id="quarantine-btn">Quarantine</button>
+    <button class="btn btn-secondary" id="quarantine-btn" style="margin-left:auto;color:var(--danger);border-color:var(--danger-bd);opacity:.4;pointer-events:none">Quarantine</button>
   </div>
 
   <!-- IOC type tabs: Files | Windows Registry -->
@@ -661,43 +669,69 @@ function renderMfTable() {
 
   if (mfTab === 'files') {
     document.getElementById('mf-thead').innerHTML = `<tr>
-      <th>File</th>
-      <th>First Observed Snapshot</th>
-      <th>File Size</th>
-      <th>Match Type</th>
-      <th>Detected</th>
+      <th class="cb"><input type="checkbox" onchange="toggleAllMf(this)"></th>
+      <th>File</th><th>First Observed Snapshot</th><th>File Size</th><th>Match Type</th><th>Detected</th>
     </tr>`;
     document.getElementById('mf-tbody').innerHTML = entries.map((f, i) =>
-      `<tr class="clickable" onclick="showFileDetail(${i})">
+      `<tr class="clickable" onclick="rowClickMf(event,this,${i})">
+        <td class="cb"><input type="checkbox" onclick="event.stopPropagation();syncHeaderCb()"></td>
         <td><div class="name-link mono" style="font-size:12px">${f.name}</div><div style="font-size:11px;color:var(--text-disabled);margin-top:2px">${f.path}</div></td>
         <td style="font-size:12px">${f.firstObserved}</td>
         <td style="font-size:12px">${f.size}</td>
         <td><span class="badge b-hash">${f.matchType}</span></td>
         <td style="font-size:12px">${f.detected}</td>
       </tr>`
-    ).join('') || `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-disabled)">No file matches for this object</td></tr>`;
+    ).join('') || `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-disabled)">No file matches for this object</td></tr>`;
   } else {
     document.getElementById('mf-thead').innerHTML = `<tr>
-      <th>Matched Value</th>
-      <th>Match Type</th>
-      <th>First Observed Snapshot</th>
-      <th>Latest Matched Snapshot</th>
-      <th>Latest Snapshot without Matches</th>
+      <th class="cb"><input type="checkbox" onchange="toggleAllMf(this)"></th>
+      <th>Matched Value</th><th>Match Type</th><th>First Observed Snapshot</th><th>Latest Matched Snapshot</th><th>Latest Snapshot without Matches</th>
     </tr>`;
     document.getElementById('mf-tbody').innerHTML = entries.map((f, i) => {
       const guided = f.ioc.includes('EnableLUA') ? ' row-guided' : '';
-      return `<tr class="clickable${guided}" onclick="showFileDetail(${i})">
+      return `<tr class="clickable${guided}" onclick="rowClickMf(event,this,${i})">
+        <td class="cb"><input type="checkbox" onclick="event.stopPropagation();syncHeaderCb()"></td>
         <td><span class="name-link mono" style="font-size:12px">${f.name}</span></td>
         <td><span class="badge b-reg">Windows Registry</span></td>
         <td style="font-size:12px">${f.firstObserved}</td>
         <td style="font-size:12px">${f.detected.split(' ')[0]}</td>
         <td style="font-size:12px">Jul 29, 2025</td>
       </tr>`;
-    }).join('') || `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-disabled)">No registry matches for this object</td></tr>`;
+    }).join('') || `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-disabled)">No registry matches for this object</td></tr>`;
   }
 }
 
-function showFileDetail(idx) {
+function rowClickMf(e, row, idx) {
+  if (e.target.type === 'checkbox') return;
+  document.querySelectorAll('#mf-tbody tr').forEach((r,i) => r.classList.toggle('highlighted', i===idx));
+  showFileDetail(idx);
+}
+
+function toggleAllMf(hdr) {
+  document.querySelectorAll('#mf-tbody input[type=checkbox]').forEach(cb => cb.checked = hdr.checked);
+  updateQuarantineBtn();
+}
+
+function syncHeaderCb() {
+  const boxes = [...document.querySelectorAll('#mf-tbody input[type=checkbox]')];
+  const n = boxes.filter(b => b.checked).length;
+  const hdr = document.querySelector('#mf-thead input[type=checkbox]');
+  if (hdr) {
+    hdr.checked = n === boxes.length;
+    hdr.indeterminate = n > 0 && n < boxes.length;
+  }
+  updateQuarantineBtn();
+}
+
+function updateQuarantineBtn() {
+  const any = document.querySelectorAll('#mf-tbody input[type=checkbox]:checked').length > 0;
+  const btn = document.getElementById('quarantine-btn');
+  if (!btn) return;
+  btn.style.opacity = any ? '1' : '.4';
+  btn.style.pointerEvents = any ? 'auto' : 'none';
+}
+
+
   document.querySelectorAll('#mf-tbody tr').forEach((r,i) => r.classList.toggle('highlighted', i===idx));
   const entries = mfTab === 'files' ? MATCHED_FILES[currentObj].files : MATCHED_FILES[currentObj].registry;
   const f = entries[idx];
