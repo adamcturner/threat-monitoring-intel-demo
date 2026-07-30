@@ -23,6 +23,14 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   .hidden{display:none!important}
+
+  /* ── Guided pulse animations ── */
+  @keyframes btnGlow{0%,100%{box-shadow:0 0 0 0 rgba(0,125,147,0);background:var(--brand-primary)}50%{box-shadow:0 0 0 6px rgba(0,125,147,.4),0 0 20px rgba(47,202,255,.3);background:var(--brand-hover)}}
+  @keyframes rowPulse{0%,100%{box-shadow:inset 0 0 0 1px rgba(47,202,255,0);background:transparent}50%{box-shadow:inset 0 0 0 1px rgba(47,202,255,.6),0 0 12px rgba(47,202,255,.2);background:rgba(47,202,255,.1)}}
+  @keyframes rowPulseCrit{0%,100%{box-shadow:inset 0 0 0 1px rgba(255,86,100,0);background:transparent}50%{box-shadow:inset 0 0 0 1px rgba(255,86,100,.5),0 0 10px rgba(255,86,100,.2);background:rgba(255,86,100,.07)}}
+  .btn-guided{animation:btnGlow 1.6s ease-in-out infinite;color:#fff}
+  .row-guided{animation:rowPulse 1.6s ease-in-out infinite;cursor:pointer}
+  .row-guided-crit{animation:rowPulseCrit 1.6s ease-in-out infinite;cursor:pointer}
   ::-webkit-scrollbar{width:6px;height:6px}
   ::-webkit-scrollbar-track{background:transparent}
   ::-webkit-scrollbar-thumb{background:rgba(160,199,255,.2);border-radius:3px}
@@ -278,6 +286,13 @@
   .severity-crit{background:rgba(255,86,100,.08);border:1px solid rgba(255,86,100,.25);color:rgba(255,86,100,.9)}
   .severity-warn{background:rgba(255,183,33,.08);border:1px solid rgba(255,183,33,.25);color:rgba(255,183,33,.9)}
 
+  /* IOC type sub-tabs (Files | Windows Registry) */
+  .ioc-tabs{display:flex;border-bottom:1px solid var(--stroke-moderate);background:rgba(9,46,87,.3);flex-shrink:0}
+  .ioc-tab{position:relative;padding:9px 20px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text-weak);user-select:none;transition:color .15s}
+  .ioc-tab:hover{color:var(--text-moderate)}
+  .ioc-tab.active{color:var(--text-strong)}
+  .ioc-tab.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--tab-gradient)}
+
   /* Obj icon */
   .obj-icon{display:inline-flex;align-items:center;gap:8px;color:var(--brand-link)}
   .obj-icon svg{flex-shrink:0;opacity:.8}
@@ -329,7 +344,7 @@
     <div class="ph-title-row">
       <div class="ph-h1">Intel Feed</div>
       <div class="ph-actions">
-        <button class="btn btn-primary" onclick="openWizard()">Add Intel source</button>
+        <button class="btn btn-primary btn-guided" onclick="openWizard()">Add Intel source</button>
       </div>
     </div>
     <div class="ph-tabs">
@@ -449,7 +464,7 @@
         <th>Match Type</th>
       </tr></thead>
       <tbody>
-        <tr class="clickable tm-row critical" onclick="openMatchedFiles('FINSERV-APP-01','US East (Virginia)',true)">
+        <tr class="clickable tm-row critical row-guided-crit" onclick="openMatchedFiles('FINSERV-APP-01','US East (Virginia)',true)">
           <td>
             <div style="font-size:11px;color:var(--text-disabled);margin-bottom:3px">US East (Virginia)</div>
             <span class="obj-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/><rect x="3" y="1" width="8" height="2" rx="1" fill="currentColor" opacity=".5"/></svg><span class="name-link">FINSERV-APP-01</span></span>
@@ -504,6 +519,12 @@
   <div class="action-bar">
     <button class="btn btn-secondary" style="color:var(--danger);border-color:var(--danger-bd)" id="quarantine-btn" style="opacity:.4;pointer-events:none">Quarantine</button>
     <span style="font-size:13px;color:var(--text-weak)" id="mf-count"></span>
+  </div>
+
+  <!-- IOC type tabs: Files | Windows Registry -->
+  <div class="ioc-tabs" id="mf-ioc-tabs">
+    <div class="ioc-tab" id="mf-tab-files" onclick="switchMfTab('files')">Files</div>
+    <div class="ioc-tab active" id="mf-tab-registry" onclick="switchMfTab('registry')">Windows Registry</div>
   </div>
 
   <!-- Split: table (left) + detail panel (right) -->
@@ -563,20 +584,32 @@
 <script>
 // ── Data ─────────────────────────────────────────────────────────────────
 const MATCHED_FILES = {
-  'FINSERV-APP-01': [
-    { name:'SOFTWARE\\Policies\\System', path:'C:\\Windows\\System32\\config\\SOFTWARE', size:'—', matchType:'Windows Registry', detected:'Jul 29, 2025 14:32', firstObserved:'Jul 15, 2025', severity:'critical', ioc:'EnableLUA = 0x0 (UAC disabled)', family:'Defense Evasion', source:'Windows Registry Rules', hashes:[], note:'Key exists with UAC disabled — elevated privilege execution possible without user consent prompt.' },
-    { name:'svchost32.exe', path:'C:\\Users\\jharris\\AppData\\Roaming\\SecurityUpdate\\svchost32.exe', size:'184 KB', matchType:'Hash', detected:'Jul 29, 2025 11:04', firstObserved:'Jul 10, 2025', severity:'critical', ioc:'SHA256: a3f8d2e1...', family:'BlackCat/ALPHV', source:'Google Threat Intelligence', hashes:[{type:'MD5',val:'9b4e1f2a3c8d7e6b'},{type:'SHA256',val:'a3f8d2e1b7c4f9a2e5d8b3c6f0e1d4a7'},{type:'SHA1',val:'f2d4b8c1e9a3f7d2'}] },
-    { name:'WinDefSvc.dll', path:'C:\\Windows\\System32\\WinDefSvc.dll', size:'96 KB', matchType:'Windows Registry', detected:'Jul 28, 2025 22:18', firstObserved:'Jul 13, 2025', severity:'critical', ioc:'ImagePath = %SystemRoot%\\system32\\WinDefSvc.exe', family:'BlackCat/ALPHV', source:'Windows Registry Rules', hashes:[], note:'Rogue service registered under Windows Defender name.' },
-    { name:'ALPHV\\C2Config key', path:'HKEY_LOCAL_MACHINE\\SOFTWARE\\ALPHV\\C2Config', size:'—', matchType:'Windows Registry', detected:'Jul 28, 2025 18:55', firstObserved:'Jul 15, 2025', severity:'critical', ioc:'Key exists (no value required)', family:'BlackCat/ALPHV', source:'Windows Registry Rules', hashes:[], note:'Key exists as a runtime signal flag. No value or data written — evades value-based monitoring.' },
-  ],
-  'DC01-EASTUS': [
-    { name:'SOFTWARE\\Policies\\System', path:'C:\\Windows\\System32\\config\\SOFTWARE', size:'—', matchType:'Windows Registry', detected:'Jul 28, 2025 09:11', firstObserved:'Jul 19, 2025', severity:'critical', ioc:'EnableLUA = 0x0 (UAC disabled)', family:'Defense Evasion', source:'Windows Registry Rules', hashes:[], note:'UAC disabled via registry — same technique confirmed across multiple objects.' },
-  ],
-  'HR-WKS-042': [
-    { name:'SOFTWARE\\Policies\\System', path:'C:\\Windows\\System32\\config\\SOFTWARE', size:'—', matchType:'Windows Registry', detected:'Jul 27, 2025 22:55', firstObserved:'Jul 18, 2025', severity:'warning', ioc:'EnableLUA = 0x0 (UAC disabled)', family:'Defense Evasion', source:'Windows Registry Rules', hashes:[], note:'RSC downgraded severity to warning — UAC disabled pattern seen in IT admin tools across tenant.' },
-    { name:'OneDriveSync (run key)', path:'HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', size:'—', matchType:'Windows Registry', detected:'Jul 27, 2025 19:33', firstObserved:'Jul 14, 2025', severity:'warning', ioc:'OneDriveSync → powershell.exe -WindowStyle Hidden', family:'BlackCat/ALPHV', source:'Windows Registry Rules', hashes:[], note:'Persistence via Run key masquerading as OneDrive sync process.' },
-  ],
+  'FINSERV-APP-01': {
+    files: [
+      { name:'svchost32.exe', path:'C:\\Users\\jharris\\AppData\\Roaming\\SecurityUpdate\\svchost32.exe', size:'184 KB', matchType:'Hash', detected:'Jul 29, 2025 11:04', firstObserved:'Jul 10, 2025', severity:'critical', ioc:'SHA256: a3f8d2e1b7c4f9a2e5d8b3c6f0e1d4a7', family:'BlackCat/ALPHV', source:'Google Threat Intelligence', hashes:[{type:'MD5',val:'9b4e1f2a3c8d7e6b'},{type:'SHA256',val:'a3f8d2e1b7c4f9a2e5d8b3c6f0e1d4a7'},{type:'SHA1',val:'f2d4b8c1e9a3f7d2'}], note:'' },
+    ],
+    registry: [
+      { name:'EnableLUA', path:'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System', size:'—', matchType:'Windows Registry', detected:'Jul 29, 2025 14:32', firstObserved:'Jul 15, 2025', severity:'critical', ioc:'EnableLUA = 0x00000000 (UAC disabled)', family:'Defense Evasion', source:'Windows Registry Rules', hashes:[], note:'UAC disabled — elevated privilege execution without user consent prompt. Enables silent privilege escalation.' },
+      { name:'ImagePath', path:'HKLM\\SYSTEM\\CurrentControlSet\\Services\\WinDefSvc', size:'—', matchType:'Windows Registry', detected:'Jul 28, 2025 22:18', firstObserved:'Jul 13, 2025', severity:'critical', ioc:'ImagePath = %SystemRoot%\\system32\\WinDefSvc.exe -k netsvcs', family:'BlackCat/ALPHV', source:'Windows Registry Rules', hashes:[], note:'Rogue service registered under Windows Defender name. Service starts automatically at boot.' },
+      { name:'SOFTWARE\\ALPHV\\C2Config', path:'HKLM\\SOFTWARE\\ALPHV\\C2Config', size:'—', matchType:'Windows Registry', detected:'Jul 28, 2025 18:55', firstObserved:'Jul 15, 2025', severity:'critical', ioc:'Key exists (no value required)', family:'BlackCat/ALPHV', source:'Windows Registry Rules', hashes:[], note:'Key exists as a runtime signal flag. No value or data written — evades monitoring tools that filter on value names or data patterns.' },
+    ],
+  },
+  'DC01-EASTUS': {
+    files: [],
+    registry: [
+      { name:'EnableLUA', path:'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System', size:'—', matchType:'Windows Registry', detected:'Jul 28, 2025 09:11', firstObserved:'Jul 19, 2025', severity:'critical', ioc:'EnableLUA = 0x00000000 (UAC disabled)', family:'Defense Evasion', source:'Windows Registry Rules', hashes:[], note:'UAC disabled — same technique confirmed across multiple objects in this hunt.' },
+    ],
+  },
+  'HR-WKS-042': {
+    files: [],
+    registry: [
+      { name:'EnableLUA', path:'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System', size:'—', matchType:'Windows Registry', detected:'Jul 27, 2025 22:55', firstObserved:'Jul 18, 2025', severity:'warning', ioc:'EnableLUA = 0x00000000 (UAC disabled)', family:'Defense Evasion', source:'Windows Registry Rules', hashes:[], note:'UAC disabled via registry. Lower severity assigned — this value pattern appears in some IT admin tooling across the tenant.' },
+      { name:'OneDriveSync', path:'HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', size:'—', matchType:'Windows Registry', detected:'Jul 27, 2025 19:33', firstObserved:'Jul 14, 2025', severity:'warning', ioc:'OneDriveSync → powershell.exe -WindowStyle Hidden -enc ...', family:'BlackCat/ALPHV', source:'Windows Registry Rules', hashes:[], note:'Persistence via Run key masquerading as OneDrive sync process. Encoded PowerShell command executed on login.' },
+    ],
+  },
 };
+
+let mfTab = 'registry'; // default to registry tab
 
 let currentObj = null;
 let wizStep = 0;
@@ -601,34 +634,56 @@ function showView(view) {
 // ── Matched files ────────────────────────────────────────────────────────
 function openMatchedFiles(objName, loc, isCritical) {
   currentObj = objName;
+  mfTab = 'registry';
   document.getElementById('mf-crumb-obj').textContent = objName;
   document.getElementById('mf-title-obj').textContent = objName;
-  const files = MATCHED_FILES[objName] || [];
-  document.getElementById('mf-count').textContent = files.length + ' file match' + (files.length !== 1 ? 'es' : '');
-  document.getElementById('mf-tbody').innerHTML = files.map((f, i) =>
-    `<tr class="clickable" onclick="showFileDetail(${i})">
+  document.getElementById('dp-placeholder').style.display = '';
+  document.getElementById('dp-body').classList.add('hidden');
+  renderMfTable();
+  showView('matched-files');
+}
+
+function switchMfTab(tab) {
+  mfTab = tab;
+  document.getElementById('mf-tab-files').classList.toggle('active', tab === 'files');
+  document.getElementById('mf-tab-registry').classList.toggle('active', tab === 'registry');
+  document.getElementById('dp-placeholder').style.display = '';
+  document.getElementById('dp-body').classList.add('hidden');
+  renderMfTable();
+}
+
+function renderMfTable() {
+  const obj = MATCHED_FILES[currentObj];
+  const entries = mfTab === 'files' ? obj.files : obj.registry;
+  const total = entries.length;
+  document.getElementById('mf-count').textContent = total + ' match' + (total !== 1 ? 'es' : '');
+  document.getElementById('mf-tbody').innerHTML = entries.map((f, i) => {
+    // Pulse the UAC disabled (EnableLUA) row
+    const guided = f.ioc.includes('EnableLUA') ? ' row-guided' : '';
+    return `<tr class="clickable${guided}" onclick="showFileDetail(${i})">
       <td><div class="name-link mono" style="font-size:12px">${f.name}</div><div style="font-size:11px;color:var(--text-disabled);margin-top:2px">${f.path}</div></td>
       <td style="font-size:12px">${f.firstObserved}</td>
       <td style="font-size:12px">${f.size}</td>
       <td><span class="badge ${f.matchType==='Hash'?'b-hash':'b-reg'}">${f.matchType}</span></td>
       <td style="font-size:12px">${f.detected}</td>
-    </tr>`
-  ).join('');
-  document.getElementById('dp-placeholder').style.display = '';
-  document.getElementById('dp-body').classList.add('hidden');
-  showView('matched-files');
+    </tr>`;
+  }).join('') || `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-disabled)">No ${mfTab === 'files' ? 'file' : 'registry'} matches for this object</td></tr>`;
 }
 
 function showFileDetail(idx) {
   document.querySelectorAll('#mf-tbody tr').forEach((r,i) => r.classList.toggle('highlighted', i===idx));
-  const f = MATCHED_FILES[currentObj][idx];
+  const entries = mfTab === 'files' ? MATCHED_FILES[currentObj].files : MATCHED_FILES[currentObj].registry;
+  const f = entries[idx];
   const dp = document.getElementById('dp-body');
   document.getElementById('dp-placeholder').style.display = 'none';
   dp.classList.remove('hidden');
 
-  const severityBanner = f.severity === 'critical'
-    ? `<div class="severity-banner severity-crit">RSC maintained this alert's critical severity. Low file prevalence across global cloud metadata means this match is rare and shouldn't be overlooked as a false positive.</div>`
-    : `<div class="severity-banner severity-warn">RSC downgraded this alert's severity to a warning. High file prevalence across global cloud metadata indicates it's a low-risk match.</div>`;
+  // Prevalence concepts only apply to file-based IOCs (hash/YARA), not registry
+  const severityBanner = f.matchType !== 'Windows Registry'
+    ? (f.severity === 'critical'
+        ? `<div class="severity-banner severity-crit">RSC maintained this alert's critical severity. Low file prevalence across global cloud metadata means this match is rare.</div>`
+        : `<div class="severity-banner severity-warn">RSC downgraded this alert's severity to a warning. High file prevalence indicates it may be a low-risk match.</div>`)
+    : '';
 
   const hashSection = f.hashes.length ? `
     <div class="dp-section">
@@ -738,7 +793,7 @@ function renderStep() {
           <div><div class="radio-card-title">Custom source</div><div class="radio-card-desc">Create up to 20 custom sources using your own IOCs.</div></div>
         </label>
       </div>`;
-    footer.innerHTML = `<button class="btn btn-secondary" onclick="closeWizard()">Cancel</button><button class="btn btn-primary" onclick="nextStep()">Next</button>`;
+    footer.innerHTML = `<button class="btn btn-secondary" onclick="closeWizard()">Cancel</button><button class="btn btn-primary btn-guided" onclick="nextStep()">Next</button>`;
   }
 
   // Step 1: Add IOCs (with Windows Registry rule builder)
@@ -853,7 +908,7 @@ function renderStep() {
         </div>
       </div>`;
 
-    footer.innerHTML = `<button class="btn btn-secondary" onclick="prevStep()">Back</button><button class="btn btn-primary" onclick="nextStep()">Next</button>`;
+    footer.innerHTML = `<button class="btn btn-secondary" onclick="prevStep()">Back</button><button class="btn btn-primary btn-guided" onclick="nextStep()">Next</button>`;
   }
 
   // Step 2: Source Details
