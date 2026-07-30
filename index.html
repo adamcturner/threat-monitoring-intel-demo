@@ -735,6 +735,7 @@ function updateQuarantineBtn() {
 }
 
 
+function showFileDetail(idx) {
   document.querySelectorAll('#mf-tbody tr').forEach((r,i) => r.classList.toggle('highlighted', i===idx));
   const entries = mfTab === 'files' ? MATCHED_FILES[currentObj].files : MATCHED_FILES[currentObj].registry;
   const f = entries[idx];
