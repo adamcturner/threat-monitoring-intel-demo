@@ -536,13 +536,7 @@
       </div>
       <div class="table-scroll">
         <table>
-          <thead><tr>
-            <th>File</th>
-            <th>First Observed Snapshot</th>
-            <th>File Size</th>
-            <th>Match Type</th>
-            <th>Detected</th>
-          </tr></thead>
+          <thead id="mf-thead"></thead>
           <tbody id="mf-tbody"></tbody>
         </table>
       </div>
@@ -664,17 +658,43 @@ function renderMfTable() {
   const entries = mfTab === 'files' ? obj.files : obj.registry;
   const total = entries.length;
   document.getElementById('mf-count').textContent = total + ' match' + (total !== 1 ? 'es' : '');
-  document.getElementById('mf-tbody').innerHTML = entries.map((f, i) => {
-    // Pulse the UAC disabled (EnableLUA) row
-    const guided = f.ioc.includes('EnableLUA') ? ' row-guided' : '';
-    return `<tr class="clickable${guided}" onclick="showFileDetail(${i})">
-      <td><div class="name-link mono" style="font-size:12px">${f.name}</div><div style="font-size:11px;color:var(--text-disabled);margin-top:2px">${f.path}</div></td>
-      <td style="font-size:12px">${f.firstObserved}</td>
-      <td style="font-size:12px">${f.size}</td>
-      <td><span class="badge ${f.matchType==='Hash'?'b-hash':'b-reg'}">${f.matchType}</span></td>
-      <td style="font-size:12px">${f.detected}</td>
+
+  if (mfTab === 'files') {
+    document.getElementById('mf-thead').innerHTML = `<tr>
+      <th>File</th>
+      <th>First Observed Snapshot</th>
+      <th>File Size</th>
+      <th>Match Type</th>
+      <th>Detected</th>
     </tr>`;
-  }).join('') || `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-disabled)">No ${mfTab === 'files' ? 'file' : 'registry'} matches for this object</td></tr>`;
+    document.getElementById('mf-tbody').innerHTML = entries.map((f, i) =>
+      `<tr class="clickable" onclick="showFileDetail(${i})">
+        <td><div class="name-link mono" style="font-size:12px">${f.name}</div><div style="font-size:11px;color:var(--text-disabled);margin-top:2px">${f.path}</div></td>
+        <td style="font-size:12px">${f.firstObserved}</td>
+        <td style="font-size:12px">${f.size}</td>
+        <td><span class="badge b-hash">${f.matchType}</span></td>
+        <td style="font-size:12px">${f.detected}</td>
+      </tr>`
+    ).join('') || `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-disabled)">No file matches for this object</td></tr>`;
+  } else {
+    document.getElementById('mf-thead').innerHTML = `<tr>
+      <th>Matched Value</th>
+      <th>Match Type</th>
+      <th>First Observed Snapshot</th>
+      <th>Latest Matched Snapshot</th>
+      <th>Latest Snapshot without Matches</th>
+    </tr>`;
+    document.getElementById('mf-tbody').innerHTML = entries.map((f, i) => {
+      const guided = f.ioc.includes('EnableLUA') ? ' row-guided' : '';
+      return `<tr class="clickable${guided}" onclick="showFileDetail(${i})">
+        <td><span class="name-link mono" style="font-size:12px">${f.name}</span></td>
+        <td><span class="badge b-reg">Windows Registry</span></td>
+        <td style="font-size:12px">${f.firstObserved}</td>
+        <td style="font-size:12px">${f.detected.split(' ')[0]}</td>
+        <td style="font-size:12px">Jul 29, 2025</td>
+      </tr>`;
+    }).join('') || `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-disabled)">No registry matches for this object</td></tr>`;
+  }
 }
 
 function showFileDetail(idx) {
