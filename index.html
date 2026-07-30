@@ -611,6 +611,13 @@ const MATCHED_FILES = {
 
 let mfTab = 'registry'; // default to registry tab
 
+// Start on step 1 (Add IOCs) with wizard open
+window.addEventListener('DOMContentLoaded', () => {
+  wizStep = 1;
+  document.getElementById('wiz-overlay').classList.remove('hidden');
+  renderStep();
+});
+
 let currentObj = null;
 let wizStep = 0;
 let sourceType = 'custom';
