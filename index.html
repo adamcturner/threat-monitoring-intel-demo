@@ -615,8 +615,8 @@ let mfTab = 'registry'; // default to registry tab
 
 // Start on step 1 (Add IOCs) with wizard open
 window.addEventListener('DOMContentLoaded', () => {
+  openWizard();
   wizStep = 1;
-  document.getElementById('wiz-overlay').classList.remove('hidden');
   renderStep();
 });
 
