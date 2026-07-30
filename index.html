@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Threat Monitoring — Intel Feed Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ── RSC dark tokens ── */
+  :root{
+    --surface-primary:#093565;--surface-secondary:#0A2E57;--surface-tertiary:#0C2448;
+    --stroke-strong:rgba(160,199,255,.24);--stroke-moderate:rgba(160,199,255,.16);--stroke-weak:rgba(160,199,255,.08);
+    --text-strong:#FFF;--text-moderate:rgba(255,255,255,.80);--text-weak:#C6CBCB;--text-disabled:rgba(255,255,255,.38);
+    --brand-primary:#007D93;--brand-hover:#09A8B8;--brand-link:#2FCAFF;
+    --tab-gradient:linear-gradient(to left,#00b28c,#00a4dc);
+    --row-default:rgba(47,202,255,.04);--row-hover:rgba(47,202,255,.08);--row-selected:rgba(47,202,255,.18);--row-sel-border:#09A8B8;
+    --danger:#FF5664;--danger-bg:rgba(255,86,100,.14);--danger-bd:rgba(255,86,100,.35);
+    --success:#21DDAA;--success-bg:rgba(33,221,170,.14);--success-bd:rgba(33,221,170,.3);
+    --warning:#FFB721;--warning-bg:rgba(255,183,33,.14);--warning-bd:rgba(255,183,33,.3);
+    --critical:#FF5664;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  .hidden{display:none!important}
+  ::-webkit-scrollbar{width:6px;height:6px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:rgba(160,199,255,.2);border-radius:3px}
+
+  body{
+    font-family:'Open Sans',sans-serif;font-size:14px;line-height:1.5;
+    color:var(--text-strong);-webkit-font-smoothing:antialiased;
+    background-color:#003053;
+    background-image:
+      radial-gradient(circle at 0% 0%,   rgba(4,25,60,1),        rgba(8,29,63,0) 95%),
+      radial-gradient(circle at 90% 15%,  rgba(40,23,144,.6),     rgba(37,30,125,0) 38%),
+      radial-gradient(circle at 40% 59%,  rgba(0,79,173,1),       rgba(0,73,159,0) 60%),
+      radial-gradient(circle at 100% 100%,rgba(0,134,168,.68),    rgba(14,86,117,.09) 64%),
+      radial-gradient(circle at 30% 100%, rgba(2,88,144,1),       rgba(2,88,144,.1) 30%),
+      radial-gradient(circle at 99% 99%,  rgba(0,48,83,1),        rgba(0,48,83,1) 60%);
+    background-attachment:fixed;background-size:100vw 100vh;
+    height:100vh;display:flex;flex-direction:column;overflow:hidden;
+  }
+
+  /* ── Global header ── */
+  .gh{
+    height:52px;flex-shrink:0;
+    background:rgba(4,18,46,.92);backdrop-filter:blur(16px);
+    border-bottom:1px solid var(--stroke-moderate);
+    display:grid;grid-template-columns:auto 1fr auto;align-items:stretch;
+  }
+  .gh-left{display:flex;align-items:center;padding:0 4px 0 0;border-right:1px solid var(--stroke-weak)}
+  .gh-logo{width:52px;height:100%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .gh-title{font-size:13px;font-weight:600;color:var(--text-moderate);padding:0 16px 0 8px;white-space:nowrap;letter-spacing:.01em}
+  .gh-tabs{display:flex;align-items:stretch;justify-content:center;height:100%}
+  .gh-tab{
+    position:relative;height:100%;display:flex;align-items:center;
+    padding:0 16px;font-size:13px;font-weight:500;color:var(--text-weak);
+    cursor:pointer;user-select:none;white-space:nowrap;transition:color .15s;
+  }
+  .gh-tab:hover{color:var(--text-moderate)}
+  .gh-tab.active{color:var(--text-strong)}
+  .gh-tab.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--tab-gradient);border-radius:3px 3px 0 0}
+  .gh-right{display:flex;align-items:center;gap:2px;padding:0 20px 0 8px;border-left:1px solid var(--stroke-weak);justify-self:end;margin-left:auto}
+  .gh-icon{width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-weak);transition:background .15s,color .15s}
+  .gh-icon:hover{background:rgba(255,255,255,.07);color:var(--text-moderate)}
+  .gh-avatar{width:28px;height:28px;border-radius:50%;background:var(--brand-primary);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;cursor:pointer;margin:0 6px;box-shadow:0 0 0 2px rgba(0,125,147,.4)}
+  .gh-brand{font-size:13px;font-weight:700;letter-spacing:.8px;background:linear-gradient(to right,#2FCAFF,#00b28c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;padding-left:12px;border-left:1px solid var(--stroke-weak);margin-left:6px}
+
+  /* ── Page header (RkPageHeader) ── */
+  .ph{flex-shrink:0;background:rgba(9,53,101,.8);backdrop-filter:blur(8px);border-bottom:1px solid var(--stroke-moderate);padding:14px 24px 0}
+  .ph-crumb{font-size:11px;color:var(--text-disabled);margin-bottom:10px;display:flex;align-items:center;gap:5px;letter-spacing:.01em}
+  .ph-crumb a{color:var(--brand-link);cursor:pointer;text-decoration:none;transition:opacity .15s}
+  .ph-crumb a:hover{opacity:.8;text-decoration:underline}
+  .ph-crumb .sep{color:rgba(160,199,255,.3);font-size:10px}
+  .ph-title-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
+  .ph-h1{font-size:22px;font-weight:700;line-height:1.2;letter-spacing:-.01em;display:flex;align-items:center;gap:12px}
+  .ph-actions{display:flex;gap:8px;flex-shrink:0;align-items:center}
+  .ph-tabs{display:flex;margin-top:2px}
+  .ph-tab{position:relative;padding:11px 16px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text-weak);user-select:none;transition:color .15s;display:flex;align-items:center;gap:7px}
+  .ph-tab:hover{color:var(--text-moderate)}
+  .ph-tab.active{color:var(--text-strong)}
+  .ph-tab.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--tab-gradient);border-radius:3px 3px 0 0}
+  /* customMenuBar — aggregation stats */
+  .ph-agg{display:flex;border-top:1px solid var(--stroke-weak);background:rgba(9,53,101,.45);overflow-x:auto}
+  .ph-agg-metric{position:relative;display:flex;flex-direction:column;padding:12px 24px;cursor:pointer;user-select:none;border-right:1px solid var(--stroke-weak);transition:background .15s;min-width:160px}
+  .ph-agg-metric:hover{background:rgba(47,202,255,.05)}
+  .ph-agg-metric.active{background:rgba(47,202,255,.09)}
+  .ph-agg-metric.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--tab-gradient)}
+  .agg-count{font-size:22px;font-weight:700;color:var(--text-strong);line-height:1;letter-spacing:-.02em}
+  .agg-count.critical{color:var(--danger)}
+  .agg-count.safe{color:var(--success)}
+  .agg-label{font-size:11px;color:var(--text-weak);margin-top:4px;white-space:nowrap;letter-spacing:.01em}
+
+  /* ── Content ── */
+  .content{flex:1;display:flex;flex-direction:column;overflow:hidden}
+  .view{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+  /* ── Toolbar ── */
+  .toolbar{padding:10px 16px;border-bottom:1px solid var(--stroke-weak);background:var(--surface-secondary);display:flex;align-items:center;gap:10px;flex-shrink:0;flex-direction:row-reverse}
+  .toolbar input{background:rgba(255,255,255,.06);border:1px solid var(--stroke-moderate);border-radius:6px;padding:6px 10px;font-size:13px;color:var(--text-strong);width:220px;outline:none;transition:border-color .15s}
+  .toolbar input::placeholder{color:var(--text-disabled)}
+  .toolbar input:focus{border-color:var(--brand-link)}
+  .count{color:var(--text-weak);font-size:13px;margin-right:auto}
+
+  /* ── Table ── */
+  .table-scroll{overflow-y:auto;flex:1}
+  table{width:100%;border-collapse:collapse}
+  thead th{position:sticky;top:0;z-index:1;text-align:left;padding:9px 14px;font-size:10px;font-weight:700;color:var(--text-weak);text-transform:uppercase;letter-spacing:.7px;background:var(--surface-tertiary);border-bottom:1px solid var(--stroke-strong);white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.08),0 2px 6px rgba(0,0,0,.04)}
+  tbody tr{background:transparent;border-bottom:1px solid var(--stroke-weak);transition:background .1s}
+  tbody tr.clickable{cursor:pointer}
+  tbody tr.clickable:hover{background:var(--row-hover)}
+  tbody tr.highlighted{background:var(--row-selected);border-left:2px solid var(--row-sel-border)}
+  tbody td{padding:11px 14px;vertical-align:middle;color:var(--text-moderate);font-size:13px}
+  tbody tr.highlighted td{padding-left:12px}
+  .name-link{color:var(--brand-link);cursor:pointer;font-weight:500}
+  .name-link:hover{text-decoration:underline}
+  .mono{font-family:'Fira Code',monospace;font-size:12px}
+
+  /* ── Badges/chips ── */
+  .badge{display:inline-flex;align-items:center;border-radius:1000px;padding:2px 9px;font-size:11px;font-weight:600;white-space:nowrap;margin-right:3px;letter-spacing:.01em}
+  .b-reg{background:rgba(47,202,255,.12);color:#2FCAFF;border:1px solid rgba(47,202,255,.3)}
+  .b-hash{background:rgba(33,221,170,.12);color:#21DDAA;border:1px solid rgba(33,221,170,.3)}
+  .b-yara{background:rgba(155,121,235,.12);color:#9B79EB;border:1px solid rgba(155,121,235,.3)}
+  .b-crit{background:rgba(255,86,100,.12);color:#FF5664;border:1px solid rgba(255,86,100,.3)}
+  .b-warn{background:rgba(255,183,33,.12);color:#FFB721;border:1px solid rgba(255,183,33,.3)}
+  .b-ok{background:rgba(33,221,170,.12);color:#21DDAA;border:1px solid rgba(33,221,170,.3)}
+  .b-info{background:rgba(47,202,255,.12);color:#2FCAFF;border:1px solid rgba(47,202,255,.3)}
+
+  /* ── Status dot ── */
+  .sdot{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;letter-spacing:.02em}
+  .sdot::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;flex-shrink:0}
+  .sdot.critical::before{background:var(--danger);box-shadow:0 0 5px rgba(255,86,100,.7)}
+  .sdot.warning::before{background:var(--warning);box-shadow:0 0 5px rgba(255,183,33,.7)}
+
+  /* ── Intel Feed cards (InfoCard / ResponsiveCardGrid) ── */
+  .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;padding:20px}
+  .feed-card{
+    background:rgba(9,46,87,.5);border:1px solid var(--stroke-moderate);border-radius:10px;
+    overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s;
+    box-shadow:1px 1px 4px rgba(0,0,0,.08),3px 3px 6px rgba(0,0,0,.06);
+  }
+  .feed-card:hover{border-color:rgba(47,202,255,.4);box-shadow:2px 3px 4px rgba(0,0,0,.10),6px 6px 14px rgba(0,0,0,.08)}
+  .feed-card.new{border-color:rgba(47,202,255,.5);box-shadow:0 0 0 1px rgba(47,202,255,.3),2px 3px 8px rgba(0,0,0,.15)}
+  .card-header{height:100px;display:flex;align-items:flex-end;padding:12px 16px;background:rgba(9,30,65,.5);border-bottom:1px solid var(--stroke-weak);position:relative}
+  .card-icon{position:absolute;top:12px;right:12px;width:44px;height:44px;border-radius:8px;background:rgba(47,202,255,.12);display:flex;align-items:center;justify-content:center;border:1px solid rgba(47,202,255,.2)}
+  .card-name{font-size:16px;font-weight:700;letter-spacing:-.01em}
+  .card-body{padding:14px 16px}
+  .card-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
+  .card-stat-val{font-size:17px;font-weight:700;color:var(--text-strong)}
+  .card-stat-lbl{font-size:10px;color:var(--text-disabled);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+  /* ── Action bar ── */
+  .action-bar{padding:10px 16px;border-bottom:1px solid var(--stroke-weak);background:rgba(9,46,87,.5);display:flex;align-items:center;gap:12px;flex-shrink:0}
+
+  /* ── Split view ── */
+  .split{flex:1;display:flex;overflow:hidden}
+  .rpanel{width:420px;border-left:1px solid var(--stroke-moderate);background:rgba(9,40,80,.6);backdrop-filter:blur(8px);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+  .rpanel-ph{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px;text-align:center}
+  .rpanel-ph p{font-size:13px;color:var(--text-weak);line-height:1.5;max-width:220px}
+  .rpanel-body{flex:1;overflow-y:auto;padding:22px}
+  .rpanel-body.hidden{display:none}
+
+  /* Detail panel sections (ThreatMonitoringFileDetail) */
+  .dp-section{margin-bottom:18px}
+  .dp-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-disabled);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+  .dp-value{font-size:13px;color:var(--text-moderate)}
+  .dp-row3{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:0;border:1px solid var(--stroke-moderate);border-radius:8px;overflow:hidden;margin-bottom:18px}
+  .dp-col{padding:12px;display:flex;flex-direction:column;gap:3px}
+  .dp-divider{width:1px;background:var(--stroke-weak);margin:10px 0}
+  .dp-col-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-disabled)}
+  .dp-col-val{font-size:12px;color:var(--text-moderate);margin-top:2px}
+  .dp-chip-val{display:inline-flex;align-items:center;background:rgba(47,202,255,.14);color:#2FCAFF;border:1px solid rgba(47,202,255,.35);border-radius:1000px;padding:2px 9px;font-size:11px;font-weight:600;margin-top:4px}
+
+  /* Hash table */
+  .hash-table{border:1px solid var(--stroke-moderate);border-radius:6px;overflow:hidden;margin-bottom:12px}
+  .hash-row{display:grid;grid-template-columns:64px 1fr auto;border-bottom:1px solid var(--stroke-weak);padding:7px 10px;align-items:center;gap:8px}
+  .hash-row:last-child{border-bottom:none}
+  .hash-type{font-size:10px;font-weight:700;color:var(--text-disabled);text-transform:uppercase;letter-spacing:.4px}
+  .hash-val{font-family:'Fira Code',monospace;font-size:11px;color:var(--brand-link);word-break:break-all}
+
+  /* Snapshot row */
+  .snap-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+  .snap-item{background:rgba(160,199,255,.04);border:1px solid var(--stroke-weak);border-radius:6px;padding:10px 12px}
+  .snap-item-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-disabled);margin-bottom:4px}
+  .snap-item-val{font-size:12px;color:var(--text-moderate)}
+
+  /* ── Buttons ── */
+  .btn{border:none;border-radius:6px;padding:7px 16px;font-size:13px;font-weight:500;cursor:pointer;font-family:'Open Sans',sans-serif;transition:background .15s,box-shadow .15s;letter-spacing:.01em;box-shadow:1px 1px 4px rgba(0,0,0,.08),3px 3px 6px rgba(0,0,0,.06)}
+  .btn:active{transform:translateY(1px);box-shadow:none}
+  .btn-primary{background:var(--brand-primary);color:#fff}
+  .btn-primary:hover{background:var(--brand-hover)}
+  .btn-secondary{background:rgba(160,199,255,.08);color:var(--text-moderate);border:1px solid var(--stroke-moderate)}
+  .btn-secondary:hover{background:rgba(160,199,255,.15)}
+  .btn-flat{background:transparent;color:var(--brand-link);border:1px solid rgba(47,202,255,.35);padding:6px 14px;box-shadow:none}
+  .btn-flat:hover{background:rgba(47,202,255,.07)}
+
+  /* ── Wizard (RkWizard) ── */
+  .overlay{position:fixed;inset:0;background:rgba(0,8,24,.75);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:100}
+  .overlay.hidden{display:none}
+  .wiz{background:var(--surface-tertiary);border:1px solid var(--stroke-moderate);border-radius:12px;width:680px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:3px 4px 6px rgba(0,0,0,.10),14px 14px 22px rgba(0,0,0,.10),0 0 0 1px rgba(47,202,255,.06)}
+  .wiz-hdr{padding:16px 24px 14px;border-bottom:1px solid var(--stroke-moderate);background:rgba(255,255,255,.02);display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0}
+  .wiz-subtitle{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text-disabled);margin-bottom:4px}
+  .wiz-title{font-size:18px;font-weight:700;letter-spacing:-.01em}
+  .wiz-steps{display:flex;gap:5px;align-items:center;padding-top:2px;flex-shrink:0}
+  .wiz-dot{width:6px;height:6px;border-radius:50%;background:var(--stroke-strong);transition:all .2s}
+  .wiz-dot.done{background:var(--brand-link)}
+  .wiz-dot.active{width:20px;border-radius:3px;background:var(--brand-link)}
+  .wiz-body{flex:1;overflow-y:auto;padding:28px 32px 20px}
+  .wiz-body-title{font-size:17px;font-weight:700;margin-bottom:6px}
+  .wiz-body-desc{font-size:13px;color:var(--text-weak);margin-bottom:24px;line-height:1.6}
+  .wiz-footer{padding:16px 24px;border-top:1px solid var(--stroke-moderate);background:rgba(255,255,255,.02);display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-shrink:0}
+  .xbtn{background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-weak);padding:4px 8px;border-radius:6px;line-height:1;transition:background .12s,color .12s}
+  .xbtn:hover{background:rgba(255,255,255,.08);color:var(--text-strong)}
+
+  /* Form elements */
+  .fg{margin-bottom:18px}
+  .fg label{display:block;font-size:13px;font-weight:500;color:var(--text-moderate);margin-bottom:6px}
+  .fg label .req{color:#FF5664;margin-left:2px}
+  .fg input[type=text],.fg select,.fg textarea{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--stroke-moderate);border-radius:6px;padding:8px 12px;font-size:13px;color:var(--text-strong);font-family:'Open Sans',sans-serif;outline:none;transition:border-color .15s,box-shadow .15s}
+  .fg input:focus,.fg select:focus,.fg textarea:focus{border-color:rgba(47,202,255,.6);box-shadow:0 0 0 3px rgba(47,202,255,.12)}
+  .fg select{cursor:pointer}
+  .fg select option{background:var(--surface-tertiary)}
+  .fg textarea{resize:vertical;font-family:'Fira Code',monospace;font-size:12px;line-height:1.7}
+  .hint{margin-top:5px;font-size:12px;color:var(--text-disabled)}
+
+  /* Radio group (SelectSourceTypeStep) */
+  .radio-group{display:flex;flex-direction:column;gap:10px}
+  .radio-card{border:1px solid var(--stroke-moderate);border-radius:8px;padding:14px 16px;cursor:pointer;display:flex;align-items:flex-start;gap:12px;transition:border-color .15s,background .15s}
+  .radio-card:hover{background:rgba(47,202,255,.05);border-color:rgba(47,202,255,.3)}
+  .radio-card.selected{background:rgba(47,202,255,.09);border-color:rgba(47,202,255,.5)}
+  .radio-card input[type=radio]{margin-top:3px;accent-color:var(--brand-link);width:16px;height:16px;flex-shrink:0}
+  .radio-card-title{font-size:14px;font-weight:600;margin-bottom:3px}
+  .radio-card-desc{font-size:12px;color:var(--text-weak);line-height:1.5}
+
+  /* Rule builder (Windows Registry IOC) */
+  .rule-builder{border:1px solid var(--stroke-moderate);border-radius:8px;overflow:hidden;margin-bottom:16px;background:rgba(255,255,255,.02)}
+  .rule-header{padding:10px 14px;background:rgba(160,199,255,.05);border-bottom:1px solid var(--stroke-weak);display:flex;align-items:center;justify-content:space-between}
+  .rule-header-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-disabled)}
+  .rule-fields{display:grid;grid-template-columns:1fr 1fr;gap:0}
+  .rule-field{padding:10px 14px;border-bottom:1px solid var(--stroke-weak);border-right:1px solid var(--stroke-weak)}
+  .rule-field:nth-child(even){border-right:none}
+  .rule-field:nth-last-child(-n+2){border-bottom:none}
+  .rule-field-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-disabled);margin-bottom:5px}
+  .rule-field input,.rule-field select{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--stroke-weak);border-radius:5px;padding:6px 10px;font-size:12px;color:var(--text-strong);font-family:'Fira Code',monospace;outline:none;transition:border-color .15s}
+  .rule-field input:focus,.rule-field select:focus{border-color:rgba(47,202,255,.5)}
+  .rule-field select{font-family:'Open Sans',sans-serif;cursor:pointer}
+  .rule-field select option{background:var(--surface-tertiary)}
+  .rule-condition{padding:10px 14px;border-bottom:1px solid var(--stroke-weak);display:flex;align-items:center;gap:10px;grid-column:1/-1}
+  .rule-condition-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-disabled);white-space:nowrap}
+
+  /* Notification (InlineNotification — info) */
+  .notif-info{display:flex;gap:10px;background:rgba(47,202,255,.07);border:1px solid rgba(47,202,255,.22);border-radius:6px;padding:12px 14px;margin-bottom:16px}
+  .notif-warn{display:flex;gap:10px;background:rgba(255,183,33,.07);border:1px solid rgba(255,183,33,.22);border-radius:6px;padding:12px 14px;margin-bottom:16px}
+  .notif-crit{display:flex;gap:10px;background:rgba(255,86,100,.07);border:1px solid rgba(255,86,100,.22);border-radius:6px;padding:12px 14px;margin-bottom:16px}
+  .notif p{font-size:12px;line-height:1.55}
+  .notif-info p{color:rgba(47,202,255,.9)}
+  .notif-warn p{color:rgba(255,183,33,.9)}
+  .notif-crit p{color:rgba(255,86,100,.9)}
+
+  /* IOC table (CustomIocTable) */
+  .ioc-table{border:1px solid var(--stroke-moderate);border-radius:6px;overflow:hidden;margin-bottom:16px}
+  .ioc-table-row{display:grid;grid-template-columns:1fr 140px 160px 80px;border-bottom:1px solid var(--stroke-weak);padding:9px 14px;align-items:center;gap:8px;font-size:12px}
+  .ioc-table-row:last-child{border-bottom:none}
+  .ioc-table-hdr{background:rgba(160,199,255,.06);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-disabled)}
+  .ioc-table-actions{display:flex;gap:6px;justify-content:flex-end}
+  .icon-btn{background:none;border:none;cursor:pointer;color:var(--text-weak);padding:4px;border-radius:4px;transition:color .12s,background .12s;font-size:13px}
+  .icon-btn:hover{color:var(--text-strong);background:rgba(255,255,255,.08)}
+
+  /* Success step */
+  .success-body{text-align:center;padding:32px 0 24px}
+  .success-icon{width:56px;height:56px;border-radius:50%;background:rgba(33,221,170,.15);border:2px solid rgba(33,221,170,.4);display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
+  .success-msg{font-size:15px;color:var(--text-moderate);line-height:1.6}
+  .success-msg b{color:var(--text-strong)}
+
+  /* Severity banner (ThreatMonitoringFileDetail) */
+  .severity-banner{border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;line-height:1.55}
+  .severity-crit{background:rgba(255,86,100,.08);border:1px solid rgba(255,86,100,.25);color:rgba(255,86,100,.9)}
+  .severity-warn{background:rgba(255,183,33,.08);border:1px solid rgba(255,183,33,.25);color:rgba(255,183,33,.9)}
+
+  /* Obj icon */
+  .obj-icon{display:inline-flex;align-items:center;gap:8px;color:var(--brand-link)}
+  .obj-icon svg{flex-shrink:0;opacity:.8}
+
+  /* Threat monitoring row card (custom row renderer) */
+  .tm-row{border-left:4px solid transparent}
+  .tm-row.critical{border-left-color:var(--danger)}
+  .tm-row.warning{border-left-color:var(--warning)}
+</style>
+</head>
+<body>
+
+<!-- ═══ Global header ═══ -->
+<header class="gh">
+  <div class="gh-left">
+    <div class="gh-logo">
+      <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+        <circle cx="13" cy="13" r="10" stroke="rgba(47,202,255,.25)" stroke-width="1.2"/>
+        <circle cx="13" cy="13" r="5.5" stroke="rgba(47,202,255,.45)" stroke-width="1.2"/>
+        <circle cx="13" cy="13" r="2" fill="#2FCAFF"/>
+        <line x1="13" y1="13" x2="20.5" y2="5.5" stroke="#2FCAFF" stroke-width="1.5" stroke-linecap="round" opacity=".8"/>
+      </svg>
+    </div>
+    <span class="gh-title">Data Threat Analytics</span>
+  </div>
+  <nav class="gh-tabs">
+    <div class="gh-tab">Dashboard</div>
+    <div class="gh-tab">Anomalies</div>
+    <div class="gh-tab">Investigations</div>
+    <div class="gh-tab">Threat Hunts</div>
+    <div class="gh-tab">Threat Monitoring</div>
+    <div class="gh-tab active" onclick="showView('intel-feed')">Intel Feed</div>
+    <div class="gh-tab">Quarantine</div>
+    <div class="gh-tab">Activities</div>
+  </nav>
+  <div class="gh-right">
+    <div class="gh-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.4"/><line x1="10.5" y1="10.5" x2="14" y2="14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+    <div class="gh-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M6 6c.2-1 1-1.7 2-1.7 1.1 0 1.9.8 1.9 1.8 0 1.2-1.9 1.2-1.9 2.7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11.5" r=".7" fill="currentColor"/></svg></div>
+    <div class="gh-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor" opacity=".5"/><rect x="9" y="1" width="6" height="6" rx="1" fill="currentColor" opacity=".5"/><rect x="1" y="9" width="6" height="6" rx="1" fill="currentColor" opacity=".5"/><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" opacity=".5"/></svg></div>
+    <div class="gh-avatar">AT</div>
+    <div class="gh-brand">RUBRIK</div>
+  </div>
+</header>
+
+<!-- ═══ INTEL FEED VIEW ═══ -->
+<div id="view-intel-feed" class="view">
+  <!-- Page header (RkPageHeader, title="Intel Feed", tabs: Sources | Disabled activity) -->
+  <div class="ph">
+    <div class="ph-title-row">
+      <div class="ph-h1">Intel Feed</div>
+      <div class="ph-actions">
+        <button class="btn btn-primary" onclick="openWizard()">Add Intel source</button>
+      </div>
+    </div>
+    <div class="ph-tabs">
+      <div class="ph-tab active">Sources</div>
+      <div class="ph-tab">Disabled activity</div>
+    </div>
+  </div>
+
+  <!-- Sources tab — ResponsiveCardGrid of IntelFeedCards -->
+  <div style="flex:1;overflow-y:auto">
+    <div class="card-grid" id="feed-card-grid">
+
+      <!-- Rubrik (Google Threat Intelligence) feed -->
+      <div class="feed-card" onclick="void(0)">
+        <div class="card-header">
+          <div class="card-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 6v6c0 5.5 3.4 9.7 8 11 4.6-1.3 8-5.5 8-11V6l-8-4z" fill="rgba(47,202,255,.6)" stroke="rgba(47,202,255,.4)" stroke-width="1"/></svg>
+          </div>
+          <div class="card-name">Google Threat Intelligence</div>
+        </div>
+        <div class="card-body">
+          <div style="font-size:12px;color:var(--text-weak)">Rubrik · Last updated 2h ago</div>
+          <div class="card-stats">
+            <div><div class="card-stat-val">48,391</div><div class="card-stat-lbl">Total IOCs</div></div>
+            <div><div class="card-stat-val" style="color:var(--text-disabled)">—</div><div class="card-stat-lbl">Added by</div></div>
+            <div><div class="card-stat-val" style="color:var(--text-disabled)">—</div><div class="card-stat-lbl">Quarantine</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CrowdStrike feed -->
+      <div class="feed-card" onclick="void(0)">
+        <div class="card-header">
+          <div class="card-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,183,33,.5)" stroke-width="1.5"/><path d="M8 12l3 3 5-6" stroke="#FFB721" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="card-name">CrowdStrike</div>
+        </div>
+        <div class="card-body">
+          <div style="font-size:12px;color:var(--text-weak)">Third-party · Last updated 6h ago</div>
+          <div class="card-stats">
+            <div><div class="card-stat-val">12,048</div><div class="card-stat-lbl">Total IOCs</div></div>
+            <div><div class="card-stat-val">jsmith</div><div class="card-stat-lbl">Added by</div></div>
+            <div><div class="card-stat-val" style="color:var(--success)">On</div><div class="card-stat-lbl">Quarantine</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BlackCat Persistence Rules — our new feed, highlighted -->
+      <div class="feed-card new" id="new-feed-card" style="display:none" onclick="void(0)">
+        <div class="card-header" style="background:rgba(47,202,255,.06)">
+          <div class="card-icon" style="background:rgba(47,202,255,.2);border-color:rgba(47,202,255,.4)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="#2FCAFF" stroke-width="1.5"/><line x1="3" y1="9" x2="21" y2="9" stroke="#2FCAFF" stroke-width="1" opacity=".5"/><line x1="7" y1="13" x2="13" y2="13" stroke="#2FCAFF" stroke-width="1.5" stroke-linecap="round"/><line x1="7" y1="16" x2="11" y2="16" stroke="#2FCAFF" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <div>
+            <div class="card-name" id="new-feed-name">Windows Registry Rules</div>
+            <div style="font-size:11px;color:rgba(47,202,255,.7);margin-top:2px">Custom · Just added</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div style="font-size:12px;color:var(--text-weak)">Added by Adam Turner</div>
+          <div class="card-stats">
+            <div><div class="card-stat-val" id="new-feed-ioc-count">2</div><div class="card-stat-lbl">Total IOCs</div></div>
+            <div><div class="card-stat-val">Adam T.</div><div class="card-stat-lbl">Added by</div></div>
+            <div><div class="card-stat-val" style="color:var(--text-disabled)">Off</div><div class="card-stat-lbl">Quarantine</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══ THREAT MONITORING VIEW ═══ -->
+<div id="view-threat-monitoring" class="view hidden">
+  <!-- Page header with aggregation stats (ThreatMonitoringPageHeader) -->
+  <div class="ph">
+    <div class="ph-crumb">
+      <a onclick="showView('intel-feed')">Intel Feed</a>
+      <span class="sep">/</span>
+      <span>Threat Monitoring</span>
+    </div>
+    <div class="ph-title-row">
+      <div class="ph-h1">Threat Monitoring</div>
+    </div>
+    <!-- customMenuBar: aggregation stats -->
+    <div class="ph-agg">
+      <div class="ph-agg-metric">
+        <span class="agg-count">847</span>
+        <span class="agg-label">Scanned objects</span>
+      </div>
+      <div class="ph-agg-metric active">
+        <span class="agg-count critical">3</span>
+        <span class="agg-label">Malicious objects</span>
+      </div>
+      <div class="ph-agg-metric">
+        <span class="agg-count safe">844</span>
+        <span class="agg-label">Objects without threats</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Object list table (RkGraphqlTable, custom row renderer with severity border) -->
+  <div class="action-bar">
+    <span style="font-size:13px;color:var(--text-weak)">Showing objects with threats</span>
+  </div>
+  <div class="toolbar">
+    <input type="text" placeholder="Search by object name…">
+    <span class="count">3 objects</span>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr>
+        <th>Object</th>
+        <th>File Matches</th>
+        <th>Latest Detection</th>
+        <th>Match Type</th>
+      </tr></thead>
+      <tbody>
+        <tr class="clickable tm-row critical" onclick="openMatchedFiles('FINSERV-APP-01','US East (Virginia)',true)">
+          <td>
+            <div style="font-size:11px;color:var(--text-disabled);margin-bottom:3px">US East (Virginia)</div>
+            <span class="obj-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/><rect x="3" y="1" width="8" height="2" rx="1" fill="currentColor" opacity=".5"/></svg><span class="name-link">FINSERV-APP-01</span></span>
+          </td>
+          <td>4</td>
+          <td>Jul 29, 2025 14:32</td>
+          <td><span class="badge b-reg">Windows Registry</span><span class="badge b-hash">Hash</span></td>
+        </tr>
+        <tr class="clickable tm-row critical" onclick="openMatchedFiles('DC01-EASTUS','US East (Virginia)',true)">
+          <td>
+            <div style="font-size:11px;color:var(--text-disabled);margin-bottom:3px">US East (Virginia)</div>
+            <span class="obj-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2"/><line x1="4" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity=".7"/><line x1="4" y1="7" x2="10" y2="7" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity=".7"/></svg><span class="name-link">DC01-EASTUS</span></span>
+          </td>
+          <td>1</td>
+          <td>Jul 28, 2025 09:11</td>
+          <td><span class="badge b-reg">Windows Registry</span></td>
+        </tr>
+        <tr class="clickable tm-row warning" onclick="openMatchedFiles('HR-WKS-042','US West (Oregon)',false)">
+          <td>
+            <div style="font-size:11px;color:var(--text-disabled);margin-bottom:3px">US West (Oregon)</div>
+            <span class="obj-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="4" width="10" height="7" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="4" y="2" width="6" height="3" rx="1" stroke="currentColor" stroke-width="1.2"/></svg><span class="name-link">HR-WKS-042</span></span>
+          </td>
+          <td>2</td>
+          <td>Jul 27, 2025 22:55</td>
+          <td><span class="badge b-reg">Windows Registry</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ MATCHED FILES VIEW (ThreatMonitoringMatchedFiles) ═══ -->
+<div id="view-matched-files" class="view hidden">
+  <!-- Page header: object name + Threat detected chip, breadcrumb -->
+  <div class="ph">
+    <div class="ph-crumb">
+      <a onclick="showView('intel-feed')">Intel Feed</a>
+      <span class="sep">/</span>
+      <a onclick="showView('threat-monitoring')">Threat Monitoring</a>
+      <span class="sep">/</span>
+      <span id="mf-crumb-obj"></span>
+    </div>
+    <div class="ph-title-row">
+      <div class="ph-h1">
+        <span id="mf-title-obj"></span>
+        <span class="badge b-crit">Threat detected</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action bar -->
+  <div class="action-bar">
+    <button class="btn btn-secondary" style="color:var(--danger);border-color:var(--danger-bd)" id="quarantine-btn" style="opacity:.4;pointer-events:none">Quarantine</button>
+    <span style="font-size:13px;color:var(--text-weak)" id="mf-count"></span>
+  </div>
+
+  <!-- Split: table (left) + detail panel (right) -->
+  <div class="split">
+    <!-- Matched files table (ThreatMonitoringMatchedFilesColumns) -->
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+      <div class="toolbar" style="flex-direction:row-reverse">
+        <input type="text" placeholder="Search by file name…" style="width:200px">
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th>File</th>
+            <th>First Observed Snapshot</th>
+            <th>File Size</th>
+            <th>Match Type</th>
+            <th>Detected</th>
+          </tr></thead>
+          <tbody id="mf-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Detail panel (ThreatMonitoringFileDetail — right 40%) -->
+    <div class="rpanel">
+      <div class="rpanel-ph" id="dp-placeholder">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none"><rect x="6" y="6" width="36" height="36" rx="4" stroke="rgba(160,199,255,.25)" stroke-width="1.5" fill="none"/><line x1="13" y1="18" x2="35" y2="18" stroke="rgba(160,199,255,.18)" stroke-width="1.5" stroke-linecap="round"/><line x1="13" y1="24" x2="29" y2="24" stroke="rgba(160,199,255,.18)" stroke-width="1.5" stroke-linecap="round"/><line x1="13" y1="30" x2="31" y2="30" stroke="rgba(160,199,255,.18)" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <p>Select a file to view details</p>
+      </div>
+      <div class="rpanel-body hidden" id="dp-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Add Intel Source Wizard (Add a Threat Intel Source) ═══ -->
+<div class="overlay hidden" id="wiz-overlay" onclick="if(event.target===this)closeWizard()">
+  <div class="wiz">
+    <div class="wiz-hdr">
+      <div>
+        <div class="wiz-subtitle" id="wiz-subtitle">Custom source</div>
+        <div class="wiz-title">Add a Threat Intel Source</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="wiz-steps" id="wiz-steps">
+          <div class="wiz-dot active" id="ws0"></div>
+          <div class="wiz-dot" id="ws1"></div>
+          <div class="wiz-dot" id="ws2"></div>
+        </div>
+        <button class="xbtn" onclick="closeWizard()">✕</button>
+      </div>
+    </div>
+    <div class="wiz-body" id="wiz-body"></div>
+    <div class="wiz-footer" id="wiz-footer"></div>
+  </div>
+</div>
+
+<script>
+// ── Data ─────────────────────────────────────────────────────────────────
+const MATCHED_FILES = {
+  'FINSERV-APP-01': [
+    { name:'SOFTWARE\\Policies\\System', path:'C:\\Windows\\System32\\config\\SOFTWARE', size:'—', matchType:'Windows Registry', detected:'Jul 29, 2025 14:32', firstObserved:'Jul 15, 2025', severity:'critical', ioc:'EnableLUA = 0x0 (UAC disabled)', family:'Defense Evasion', source:'Windows Registry Rules', hashes:[], note:'Key exists with UAC disabled — elevated privilege execution possible without user consent prompt.' },
+    { name:'svchost32.exe', path:'C:\\Users\\jharris\\AppData\\Roaming\\SecurityUpdate\\svchost32.exe', size:'184 KB', matchType:'Hash', detected:'Jul 29, 2025 11:04', firstObserved:'Jul 10, 2025', severity:'critical', ioc:'SHA256: a3f8d2e1...', family:'BlackCat/ALPHV', source:'Google Threat Intelligence', hashes:[{type:'MD5',val:'9b4e1f2a3c8d7e6b'},{type:'SHA256',val:'a3f8d2e1b7c4f9a2e5d8b3c6f0e1d4a7'},{type:'SHA1',val:'f2d4b8c1e9a3f7d2'}] },
+    { name:'WinDefSvc.dll', path:'C:\\Windows\\System32\\WinDefSvc.dll', size:'96 KB', matchType:'Windows Registry', detected:'Jul 28, 2025 22:18', firstObserved:'Jul 13, 2025', severity:'critical', ioc:'ImagePath = %SystemRoot%\\system32\\WinDefSvc.exe', family:'BlackCat/ALPHV', source:'Windows Registry Rules', hashes:[], note:'Rogue service registered under Windows Defender name.' },
+    { name:'ALPHV\\C2Config key', path:'HKEY_LOCAL_MACHINE\\SOFTWARE\\ALPHV\\C2Config', size:'—', matchType:'Windows Registry', detected:'Jul 28, 2025 18:55', firstObserved:'Jul 15, 2025', severity:'critical', ioc:'Key exists (no value required)', family:'BlackCat/ALPHV', source:'Windows Registry Rules', hashes:[], note:'Key exists as a runtime signal flag. No value or data written — evades value-based monitoring.' },
+  ],
+  'DC01-EASTUS': [
+    { name:'SOFTWARE\\Policies\\System', path:'C:\\Windows\\System32\\config\\SOFTWARE', size:'—', matchType:'Windows Registry', detected:'Jul 28, 2025 09:11', firstObserved:'Jul 19, 2025', severity:'critical', ioc:'EnableLUA = 0x0 (UAC disabled)', family:'Defense Evasion', source:'Windows Registry Rules', hashes:[], note:'UAC disabled via registry — same technique confirmed across multiple objects.' },
+  ],
+  'HR-WKS-042': [
+    { name:'SOFTWARE\\Policies\\System', path:'C:\\Windows\\System32\\config\\SOFTWARE', size:'—', matchType:'Windows Registry', detected:'Jul 27, 2025 22:55', firstObserved:'Jul 18, 2025', severity:'warning', ioc:'EnableLUA = 0x0 (UAC disabled)', family:'Defense Evasion', source:'Windows Registry Rules', hashes:[], note:'RSC downgraded severity to warning — UAC disabled pattern seen in IT admin tools across tenant.' },
+    { name:'OneDriveSync (run key)', path:'HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', size:'—', matchType:'Windows Registry', detected:'Jul 27, 2025 19:33', firstObserved:'Jul 14, 2025', severity:'warning', ioc:'OneDriveSync → powershell.exe -WindowStyle Hidden', family:'BlackCat/ALPHV', source:'Windows Registry Rules', hashes:[], note:'Persistence via Run key masquerading as OneDrive sync process.' },
+  ],
+};
+
+let currentObj = null;
+let wizStep = 0;
+let sourceType = 'custom';
+let iocRules = [
+  { ioc:'HKLM\\...\\Policies\\System → EnableLUA = 0x00000000', type:'Windows Registry', family:'Defense Evasion' },
+];
+let sourceName = '';
+
+// ── View routing ────────────────────────────────────────────────────────
+function showView(view) {
+  document.getElementById('view-intel-feed').classList.toggle('hidden', view !== 'intel-feed');
+  document.getElementById('view-threat-monitoring').classList.toggle('hidden', view !== 'threat-monitoring');
+  document.getElementById('view-matched-files').classList.toggle('hidden', view !== 'matched-files');
+  // Update nav tab
+  document.querySelectorAll('.gh-tab').forEach(t => t.classList.remove('active'));
+  if (view === 'intel-feed') document.querySelectorAll('.gh-tab')[5].classList.add('active');
+  if (view === 'threat-monitoring') document.querySelectorAll('.gh-tab')[4].classList.add('active');
+  if (view === 'matched-files') document.querySelectorAll('.gh-tab')[4].classList.add('active');
+}
+
+// ── Matched files ────────────────────────────────────────────────────────
+function openMatchedFiles(objName, loc, isCritical) {
+  currentObj = objName;
+  document.getElementById('mf-crumb-obj').textContent = objName;
+  document.getElementById('mf-title-obj').textContent = objName;
+  const files = MATCHED_FILES[objName] || [];
+  document.getElementById('mf-count').textContent = files.length + ' file match' + (files.length !== 1 ? 'es' : '');
+  document.getElementById('mf-tbody').innerHTML = files.map((f, i) =>
+    `<tr class="clickable" onclick="showFileDetail(${i})">
+      <td><div class="name-link mono" style="font-size:12px">${f.name}</div><div style="font-size:11px;color:var(--text-disabled);margin-top:2px">${f.path}</div></td>
+      <td style="font-size:12px">${f.firstObserved}</td>
+      <td style="font-size:12px">${f.size}</td>
+      <td><span class="badge ${f.matchType==='Hash'?'b-hash':'b-reg'}">${f.matchType}</span></td>
+      <td style="font-size:12px">${f.detected}</td>
+    </tr>`
+  ).join('');
+  document.getElementById('dp-placeholder').style.display = '';
+  document.getElementById('dp-body').classList.add('hidden');
+  showView('matched-files');
+}
+
+function showFileDetail(idx) {
+  document.querySelectorAll('#mf-tbody tr').forEach((r,i) => r.classList.toggle('highlighted', i===idx));
+  const f = MATCHED_FILES[currentObj][idx];
+  const dp = document.getElementById('dp-body');
+  document.getElementById('dp-placeholder').style.display = 'none';
+  dp.classList.remove('hidden');
+
+  const severityBanner = f.severity === 'critical'
+    ? `<div class="severity-banner severity-crit">RSC maintained this alert's critical severity. Low file prevalence across global cloud metadata means this match is rare and shouldn't be overlooked as a false positive.</div>`
+    : `<div class="severity-banner severity-warn">RSC downgraded this alert's severity to a warning. High file prevalence across global cloud metadata indicates it's a low-risk match.</div>`;
+
+  const hashSection = f.hashes.length ? `
+    <div class="dp-section">
+      <div class="dp-label">Hashes <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="opacity:.5"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/><line x1="6" y1="5" x2="6" y2="8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="6" cy="3.5" r=".5" fill="currentColor"/></svg></div>
+      <div class="hash-table">
+        ${f.hashes.map(h => `<div class="hash-row"><span class="hash-type">${h.type}</span><span class="hash-val">${h.val}</span></div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const registryNote = f.note ? `
+    <div class="notif-info notif" style="margin-bottom:16px">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;margin-top:1px;color:#2FCAFF"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3"/><line x1="7" y1="6" x2="7" y2="9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="7" cy="4.5" r=".6" fill="currentColor"/></svg>
+      <p>${f.note}</p>
+    </div>` : '';
+
+  dp.innerHTML = `
+    <div class="dp-section" style="margin-bottom:16px;border-bottom:1px solid var(--stroke-weak);padding-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style="color:${f.severity==='critical'?'var(--danger)':'var(--warning)'}"><rect x="2" y="4" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><line x1="6" y1="9" x2="16" y2="9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".7"/><line x1="6" y1="12" x2="12" y2="12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".7"/></svg>
+        <span style="font-size:15px;font-weight:700;color:var(--text-strong)">${f.name}</span>
+      </div>
+      <div class="mono" style="font-size:11px;color:var(--text-disabled)">${f.path}</div>
+      ${f.size !== '—' ? `<div style="font-size:12px;color:var(--text-weak);margin-top:4px">${f.size}</div>` : ''}
+    </div>
+
+    ${severityBanner}
+    ${registryNote}
+
+    <!-- IOC Details row (Threat Intel Source | Threat Family | Author — 3-col) -->
+    <div class="dp-row3">
+      <div class="dp-col">
+        <div class="dp-col-label">Threat Intel Source</div>
+        <div class="dp-chip-val">${f.source}</div>
+      </div>
+      <div class="dp-divider"></div>
+      <div class="dp-col">
+        <div class="dp-col-label">Threat Family</div>
+        <div class="dp-col-val" style="margin-top:6px;font-weight:500">${f.family}</div>
+      </div>
+      <div class="dp-divider"></div>
+      <div class="dp-col">
+        <div class="dp-col-label">IOC</div>
+        <div class="dp-col-val mono" style="margin-top:6px;font-size:11px;color:var(--brand-link)">${f.ioc}</div>
+      </div>
+    </div>
+
+    ${hashSection}
+
+    <!-- Affected Snapshots section -->
+    <div class="dp-section">
+      <div class="dp-label" style="font-size:13px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--text-strong);margin-bottom:10px">Affected Snapshots</div>
+      <div class="snap-grid">
+        <div class="snap-item">
+          <div class="snap-item-label">First Observed Snapshot</div>
+          <div class="snap-item-val">${f.firstObserved}</div>
+        </div>
+        <div class="snap-item">
+          <div class="snap-item-label">First Matched Snapshot</div>
+          <div class="snap-item-val">${f.detected.split(' ')[0]}</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--text-disabled);line-height:1.6">There could be older snapshots that contain this match. We recommend performing a <span style="color:var(--brand-link);cursor:pointer">threat hunt</span>.</div>
+    </div>
+  `;
+}
+
+// ── Wizard ────────────────────────────────────────────────────────────────
+function openWizard() {
+  wizStep = 0; sourceType = 'custom';
+  iocRules = [{ ioc:'HKLM\\...\\Policies\\System → EnableLUA = 0x0', type:'Windows Registry', family:'Defense Evasion' }];
+  sourceName = '';
+  document.getElementById('wiz-overlay').classList.remove('hidden');
+  renderStep();
+}
+
+function closeWizard() { document.getElementById('wiz-overlay').classList.add('hidden'); }
+
+function setSteps(total, active) {
+  const container = document.getElementById('wiz-steps');
+  container.innerHTML = '';
+  for (let i = 0; i < total; i++) {
+    const d = document.createElement('div');
+    d.className = 'wiz-dot' + (i < active ? ' done' : i === active ? ' active' : '');
+    container.appendChild(d);
+  }
+}
+
+function renderStep() {
+  const body = document.getElementById('wiz-body');
+  const footer = document.getElementById('wiz-footer');
+  const subtitle = document.getElementById('wiz-subtitle');
+
+  // Step 0: Select source type
+  if (wizStep === 0) {
+    setSteps(3, 0);
+    subtitle.textContent = 'Add a Threat Intel Source';
+    body.innerHTML = `
+      <div class="wiz-body-title">Select a Source Type</div>
+      <div class="wiz-body-desc">Select whether you want to add a third-party intel source or create a custom source for your intel feed.</div>
+      <div class="radio-group">
+        <label class="radio-card" id="rc-third" onclick="selectSourceType('third')">
+          <input type="radio" name="srcType" value="third">
+          <div><div class="radio-card-title">Third-party source</div><div class="radio-card-desc">Import intel from approved third-party sources.</div></div>
+        </label>
+        <label class="radio-card selected" id="rc-custom" onclick="selectSourceType('custom')">
+          <input type="radio" name="srcType" value="custom" checked>
+          <div><div class="radio-card-title">Custom source</div><div class="radio-card-desc">Create up to 20 custom sources using your own IOCs.</div></div>
+        </label>
+      </div>`;
+    footer.innerHTML = `<button class="btn btn-secondary" onclick="closeWizard()">Cancel</button><button class="btn btn-primary" onclick="nextStep()">Next</button>`;
+  }
+
+  // Step 1: Add IOCs (with Windows Registry rule builder)
+  else if (wizStep === 1) {
+    setSteps(3, 1);
+    subtitle.textContent = 'Custom source';
+    body.innerHTML = `
+      <div class="wiz-body-title">Add IOCs</div>
+      <div class="wiz-body-desc">Add up to 500 IOCs to include in this intel source.</div>
+
+      <!-- Existing rules (CustomIocTable) -->
+      <div class="ioc-table" id="ioc-table">
+        <div class="ioc-table-row ioc-table-hdr">
+          <span>IOC</span><span>IOC Type</span><span>Threat Family</span><span></span>
+        </div>
+        ${iocRules.map((r,i) => `
+          <div class="ioc-table-row">
+            <span class="mono" style="font-size:11px;color:var(--brand-link)">${r.ioc}</span>
+            <span><span class="badge b-reg" style="font-size:10px">${r.type}</span></span>
+            <span style="font-size:12px;color:var(--text-weak)">${r.family}</span>
+            <span class="ioc-table-actions">
+              <button class="icon-btn" onclick="removeRule(${i})" title="Remove">✕</button>
+            </span>
+          </div>`).join('')}
+      </div>
+
+      <button class="btn btn-secondary" style="margin-bottom:20px" onclick="openRuleTray()">
+        <span style="margin-right:6px">+</span> Add ${iocRules.length ? 'another' : 'an'} IOC
+      </button>
+
+      <div id="rule-tray" style="display:none">
+        <div style="border-top:1px solid var(--stroke-moderate);padding-top:20px;margin-top:4px">
+          <div style="font-size:14px;font-weight:600;margin-bottom:16px">Add an IOC</div>
+
+          <div class="fg">
+            <label>IOC Type <span class="req">*</span></label>
+            <select id="ioc-type-sel" onchange="onIocTypeChange(this.value)">
+              <option value="registry" selected>Windows Registry</option>
+              <option value="yara">YARA rule</option>
+              <option value="hash">File hash</option>
+              <option value="pattern">File pattern</option>
+            </select>
+          </div>
+
+          <div class="fg">
+            <label>Threat Family</label>
+            <input type="text" id="rule-family" placeholder="Enter threat family name" value="Defense Evasion">
+          </div>
+
+          <!-- Windows Registry rule builder -->
+          <div id="rule-builder-section">
+            <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text-moderate)">Windows Registry entries <span class="req">*</span></div>
+
+            <div class="notif-info notif" style="margin-bottom:14px">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0;margin-top:1px;color:#2FCAFF"><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.2"/><line x1="6.5" y1="5.5" x2="6.5" y2="8.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="6.5" cy="4" r=".5" fill="currentColor"/></svg>
+              <p>Define a registry condition to match. Leave <b>Value</b> and <b>Data</b> blank to match on key existence alone — useful for detecting flag keys that carry no values.</p>
+            </div>
+
+            <!-- Rule card — UAC disabled pre-filled -->
+            <div class="rule-builder">
+              <div class="rule-header">
+                <span class="rule-header-label">Registry Rule</span>
+                <span class="badge b-reg" style="font-size:10px">Windows Registry</span>
+              </div>
+              <div class="rule-fields">
+                <div class="rule-field">
+                  <div class="rule-field-label">Hive</div>
+                  <select id="rule-hive">
+                    <option value="HKEY_LOCAL_MACHINE" selected>HKEY_LOCAL_MACHINE</option>
+                    <option value="HKEY_CURRENT_USER">HKEY_CURRENT_USER</option>
+                    <option value="HKEY_CLASSES_ROOT">HKEY_CLASSES_ROOT</option>
+                    <option value="HKEY_USERS">HKEY_USERS</option>
+                  </select>
+                </div>
+                <div class="rule-field">
+                  <div class="rule-field-label">Key Path</div>
+                  <input type="text" id="rule-key" value="SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" placeholder="Key path">
+                </div>
+                <div class="rule-field">
+                  <div class="rule-field-label">Value Name <span style="color:var(--text-disabled);font-weight:400">(optional)</span></div>
+                  <input type="text" id="rule-value" value="EnableLUA" placeholder="Leave blank = key exists">
+                </div>
+                <div class="rule-field">
+                  <div class="rule-field-label">Value Type</div>
+                  <select id="rule-vtype">
+                    <option value="REG_DWORD" selected>REG_DWORD</option>
+                    <option value="REG_SZ">REG_SZ</option>
+                    <option value="REG_EXPAND_SZ">REG_EXPAND_SZ</option>
+                    <option value="REG_BINARY">REG_BINARY</option>
+                    <option value="REG_MULTI_SZ">REG_MULTI_SZ</option>
+                  </select>
+                </div>
+                <div class="rule-condition" style="display:grid;grid-template-columns:auto 160px 1fr;gap:10px;align-items:center">
+                  <span class="rule-condition-label">Condition</span>
+                  <select id="rule-condition" style="background:rgba(255,255,255,.06);border:1px solid var(--stroke-weak);border-radius:5px;padding:6px 10px;font-size:12px;color:var(--text-strong);font-family:'Open Sans',sans-serif;cursor:pointer">
+                    <option value="equals" selected>equals</option>
+                    <option value="not_equals">does not equal</option>
+                    <option value="exists">exists (any value)</option>
+                    <option value="not_exists">does not exist</option>
+                    <option value="contains">contains</option>
+                  </select>
+                  <input type="text" id="rule-data" value="0x00000000" placeholder="Data value" style="background:rgba(255,255,255,.06);border:1px solid var(--stroke-weak);border-radius:5px;padding:6px 10px;font-size:12px;color:var(--brand-link);font-family:'Fira Code',monospace">
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+              <button class="btn btn-secondary" onclick="closeRuleTray()" style="padding:6px 14px">Cancel</button>
+              <button class="btn btn-primary" onclick="addRule()" style="padding:6px 16px">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    footer.innerHTML = `<button class="btn btn-secondary" onclick="prevStep()">Back</button><button class="btn btn-primary" onclick="nextStep()">Next</button>`;
+  }
+
+  // Step 2: Source Details
+  else if (wizStep === 2) {
+    setSteps(3, 2);
+    subtitle.textContent = 'Custom source';
+    body.innerHTML = `
+      <div class="wiz-body-title">Source Details</div>
+      <div class="wiz-body-desc">Enter a name and add a description for this intel source.</div>
+      <div class="fg">
+        <label>Intel Source Name <span class="req">*</span></label>
+        <input type="text" id="source-name" placeholder="Enter a name" value="${sourceName || 'Windows Registry Rules — Endpoint Hardening'}">
+      </div>
+      <div class="fg">
+        <label>Description</label>
+        <textarea rows="4" placeholder="Enter a description">Detects common registry-based defense evasion techniques including UAC bypass, malicious persistence keys, and flag-key signals used by BlackCat/ALPHV and similar actors.</textarea>
+      </div>
+      ${iocRules.some(r => r.type === 'File pattern') ? `<div class="notif-info notif"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0;color:#2FCAFF"><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.2"/></svg><p>File pattern IOCs are not included in the created feed. They are included in the created hunt.</p></div>` : ''}`;
+    footer.innerHTML = `<button class="btn btn-secondary" onclick="prevStep()">Back</button><button class="btn btn-primary" onclick="submitSource()">Add</button>`;
+  }
+
+  // Step 3: Success
+  else if (wizStep === 3) {
+    setSteps(3, 3);
+    subtitle.textContent = '';
+    body.innerHTML = `
+      <div class="success-body">
+        <div class="success-icon">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="11" stroke="#21DDAA" stroke-width="1.5"/><path d="M9 14l4 4 7-8" stroke="#21DDAA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="success-msg"><b>${sourceName || 'Windows Registry Rules — Endpoint Hardening'}</b> was added to your intel feed.</div>
+        <div style="margin-top:16px;font-size:12px;color:var(--text-disabled)">Threat Monitoring is now scanning your environment against these rules.</div>
+      </div>`;
+    footer.innerHTML = `<button class="btn btn-primary" onclick="finishWizard()">Done</button>`;
+  }
+}
+
+function selectSourceType(type) {
+  sourceType = type;
+  document.getElementById('rc-custom').classList.toggle('selected', type === 'custom');
+  document.getElementById('rc-third').classList.toggle('selected', type === 'third');
+}
+
+function onIocTypeChange(val) {
+  const show = val === 'registry';
+  document.getElementById('rule-builder-section').style.display = show ? '' : 'none';
+}
+
+function openRuleTray()  { document.getElementById('rule-tray').style.display = '' }
+function closeRuleTray() { document.getElementById('rule-tray').style.display = 'none' }
+
+function addRule() {
+  const hive = document.getElementById('rule-hive').value;
+  const key  = document.getElementById('rule-key').value.trim();
+  const val  = document.getElementById('rule-value').value.trim();
+  const cond = document.getElementById('rule-condition').value;
+  const data = document.getElementById('rule-data').value.trim();
+  const family = document.getElementById('rule-family').value.trim() || '—';
+
+  const keyShort = key.length > 30 ? '...' + key.slice(-28) : key;
+  const hiveShort = hive === 'HKEY_LOCAL_MACHINE' ? 'HKLM' : 'HKCU';
+  let iocStr;
+  if (cond === 'exists')     iocStr = `${hiveShort}\\${keyShort} (key exists)`;
+  else if (cond === 'not_exists') iocStr = `${hiveShort}\\${keyShort} (key absent)`;
+  else iocStr = `${hiveShort}\\${keyShort} → ${val || '(any)'} ${cond.replace('_',' ')} ${data}`;
+
+  iocRules.push({ ioc: iocStr, type: 'Windows Registry', family });
+  closeRuleTray();
+  renderStep();
+}
+
+function removeRule(idx) {
+  iocRules.splice(idx, 1);
+  renderStep();
+}
+
+function nextStep() { wizStep++; renderStep(); }
+function prevStep() { wizStep--; renderStep(); }
+
+function submitSource() {
+  sourceName = document.getElementById('source-name')?.value || 'Windows Registry Rules — Endpoint Hardening';
+  wizStep = 3;
+  renderStep();
+}
+
+function finishWizard() {
+  closeWizard();
+  // Show the new card on the feed
+  const card = document.getElementById('new-feed-card');
+  card.style.display = '';
+  document.getElementById('new-feed-name').textContent = sourceName || 'Windows Registry Rules — Endpoint Hardening';
+  document.getElementById('new-feed-ioc-count').textContent = iocRules.length;
+  // Transition to threat monitoring after a beat
+  setTimeout(() => showView('threat-monitoring'), 600);
+}
+</script>
+</body>
+</html>
